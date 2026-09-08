@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>용사 키우기: 마왕 토벌전 (Hero Slayer)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 2D Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Dark Fantasy Vignette Filter -->
+    <div class="vignette-overlay"></div>
+
+    <!-- HUD (Game Playing Overlay) -->
+    <div id="hud" class="hidden">
+        <!-- Top Row -->
+        <div class="hud-top">
+            <!-- Health & Shield Card -->
+            <div class="player-status-card">
+                <div class="bar-wrap">
+                    <div class="bar-label">
+                        <span>생명력 (HP)</span>
+                        <span id="hpText">120 / 120</span>
+                    </div>
+                    <div class="bar-track">
+                        <div id="hpBar" class="bar-fill hp-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-label">
+                        <span>수호의 보호막</span>
+                    </div>
+                    <div class="bar-track">
+                        <div id="shieldBar" class="bar-fill shield-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+                <!-- In-Game Ancient Artifacts Tray -->
+                <div id="artifactSlots" class="artifact-tray">
+                    <!-- Populated via JS when artifacts are acquired -->
+                </div>
+            </div>
+
+            <!-- Center Clock & Stats -->
+            <div class="hud-center-info">
+                <div id="timerText" class="timer-box">00:00</div>
+                <div class="stats-badges">
+                    <div id="killCount" class="stat-badge">⚔️ 0</div>
+                    <div id="coinCount" class="stat-badge">🪙 0</div>
+                </div>
+                <div id="comboBadge" class="combo-badge hidden">0 연격</div>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="hud-top-right">
+                <button id="muteBtn" class="hud-btn">🔊 사운드 ON</button>
+            </div>
+        </div>
+
+        <!-- Boss Health Bar -->
+        <div id="bossBarContainer" class="hidden">
+            <div class="boss-title-row">
+                <span id="bossName">⚠️ 지옥 맹견 켈베로스</span>
+                <span>BOSS</span>
+            </div>
+            <div class="boss-bar-track">
+                <div id="bossBarFill" class="boss-bar-fill" style="width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Controls & EXP -->
+        <div class="hud-bottom">
+            <!-- Active Action Buttons -->
+            <div class="action-buttons-wrap">
+                <button id="dashBtn" class="action-btn dash-action-btn">⚡ 회피 대시 [SPACE]</button>
+                <button id="overdriveBtn" class="action-btn overdrive-action-btn">성역 게이지 0% [Q]</button>
+            </div>
+
+            <!-- EXP Bar -->
+            <div class="exp-bar-container">
+                <div id="levelBadge" class="level-badge">LV. 1</div>
+                <div class="exp-track">
+                    <div id="expBar" class="exp-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN MENU MODAL -->
+    <div id="mainMenu" class="modal-overlay">
+        <div class="modal-content">
+            <!-- Hero Artwork Banner -->
+            <div class="menu-banner-box">
+                <div class="hero-portrait-frame">
+                    <img src="assets/hero.jpg" alt="용사 일러스트">
+                </div>
+                <div class="menu-title-wrap">
+                    <h1 class="game-title">HERO SLAYER</h1>
+                    <div class="game-sub">용사 키우기 // 마왕 토벌 로그라이크 RPG</div>
+                </div>
+            </div>
+
+            <div class="menu-records">
+                <div class="menu-stat-pill">최장 생존 기록: <strong id="menuRecord">00:00</strong></div>
+                <div class="menu-stat-pill">보유 영웅 금화: <strong id="menuCoins">0</strong> 🪙</div>
+            </div>
+
+            <!-- Player Name (Hero Nickname) Input -->
+            <div class="player-name-section">
+                <div class="name-label-row">
+                    <span class="name-icon">⚔️</span>
+                    <label for="playerNameInput" class="name-label">용사 닉네임 (HERO NAME):</label>
+                </div>
+                <div class="name-input-box">
+                    <input type="text" id="playerNameInput" maxlength="12" placeholder="용사의 이름을 입력하세요" value="빛의 용사" spellcheck="false">
+                    <span class="name-hint">TOP 5 명예의 전당에 영구 기록 및 공유됩니다</span>
+                </div>
+            </div>
+
+            <div class="hero-selection-title">원정대 용사 선택 (Choose Hero)</div>
+            <div id="heroCards" class="hero-cards-container">
+                <!-- Injected via JavaScript -->
+            </div>
+
+            <div class="menu-actions">
+                <button id="startBtn" class="primary-btn">마왕 토벌 출진 (START)</button>
+                <button id="labBtn" class="secondary-btn">🏛️ 고대 신전 (영구 강화)</button>
+                <button id="leaderboardBtn" class="secondary-btn gold-border-btn">🏆 명예의 전당 (TOP 5)</button>
+            </div>
+
+            <div class="controls-guide">
+                <span>이동: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 방향키 / 드래그</span>
+                <span>회피: <kbd>Space</kbd></span>
+                <span>필살 성역: <kbd>Q</kbd></span>
+                <span>사운드: <kbd>M</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEVEL UP MODAL -->
+    <div id="levelUpModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="modal-title">HERO AWAKENING</h2>
+            <div class="modal-sub">성스러운 룬의 힘을 선택하여 용사의 무구와 마법을 강화하십시오</div>
+
+            <div id="upgradeCards" class="upgrade-grid">
+                <!-- 3 Upgrade Cards Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- SHRINE META PROGRESSION MODAL -->
+    <div id="labModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="lab-header">
+                <h2 class="modal-title">🏛️ 고대 신전 (영구 축복 기도)</h2>
+                <div class="lab-coins">
+                    <span>보유 금화:</span>
+                    <span id="labCoins">0</span> 🪙
+                </div>
+            </div>
+            <div class="modal-sub">토벌에서 획득한 영웅 금화를 신전에 봉헌하여 영구적인 신의 가호를 받으십시오. 모든 기록은 영구 보존됩니다.</div>
+
+            <div id="metaList" class="meta-upgrades-list">
+                <!-- Meta upgrades injected via JS -->
+            </div>
+
+            <button id="closeLabBtn" class="secondary-btn">원정대 진영으로 복귀</button>
+        </div>
+    </div>
+
+    <!-- HALL OF FAME / TOP 5 LEADERBOARD MODAL -->
+    <div id="leaderboardModal" class="modal-overlay hidden">
+        <div class="modal-content leaderboard-modal-content">
+            <div class="modal-header-row">
+                <h2 class="modal-title">🏆 명예의 전당 (TOP 5)</h2>
+                <div id="syncBadge" class="sync-badge">
+                    <span class="sync-dot"></span> <span id="syncStatusText">연동 상태 확인 중...</span>
+                </div>
+            </div>
+            <div class="modal-sub">마왕의 군세에 맞서 대륙을 수호한 상위 5대 전설의 영웅들입니다. 기록을 경신하여 이름을 남기십시오!</div>
+
+            <div class="leaderboard-table-wrap">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 14%;">순위</th>
+                            <th style="width: 26%;">용사 닉네임</th>
+                            <th style="width: 18%;">생존 시간</th>
+                            <th style="width: 14%;">처치 수</th>
+                            <th style="width: 12%;">경지</th>
+                            <th style="width: 16%;">달성일</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <!-- Populated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Share & Sync Box -->
+            <div class="share-panel">
+                <div class="share-info-text">
+                    <span>⚔️ <strong>친구/스마트폰과 함께 플레이:</strong> 로컬 연동 서버 실행 시 같은 Wi-Fi에 연결된 누구나 주소로 접속해 실시간 랭킹 경쟁이 가능합니다.</span>
+                </div>
+                <div class="share-btn-row">
+                    <button id="copyShareUrlBtn" class="action-btn-gold">🔗 접속 주소 복사</button>
+                    <button id="copyRankBtn" class="action-btn-gold">📋 랭킹 기록 복사</button>
+                </div>
+            </div>
+
+            <div class="menu-actions" style="margin-top: 16px;">
+                <button id="closeLeaderboardBtn" class="secondary-btn">진영으로 복귀</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameOverModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <!-- New Record Celebration Banner -->
+            <div id="newRecordBanner" class="new-record-banner hidden">
+                🏆 축하합니다! 명예의 전당 TOP 5 신기록을 달성하였습니다!
+            </div>
+
+            <!-- Boss Artwork Portrait -->
+            <div class="game-over-boss-portrait">
+                <img src="assets/boss.jpg" alt="마왕 말가루스">
+            </div>
+            <h2 class="game-over-title">용사가 쓰러졌습니다...</h2>
+            <div class="modal-sub">심연의 마기가 대지를 뒤덮었습니다. 신전에서 기도를 올리고 다시 토벌에 나서십시오!</div>
+
+            <div class="stat-summary-grid">
+                <div class="summary-card">
+                    <div class="summary-label">버텨낸 시간</div>
+                    <div id="statTime" class="summary-val">00:00</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">처치한 마물</div>
+                    <div id="statKills" class="summary-val">0</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">도달한 경지</div>
+                    <div id="statLevel" class="summary-val">0</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">획득한 금화</div>
+                    <div id="statCoins" class="summary-val" style="color: var(--gold-bright);">+0</div>
+                </div>
+            </div>
+
+            <div class="menu-actions">
+                <button id="retryBtn" class="primary-btn">즉시 재도전 (RETRY)</button>
+                <button id="gameOverLeaderboardBtn" class="secondary-btn gold-border-btn">🏆 명예의 전당 (TOP 5)</button>
+                <button id="menuBtn" class="secondary-btn">진영 복귀 (CAMP)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="audio.js"></script>
+    <script src="upgrades.js"></script>
+    <script src="entities.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
